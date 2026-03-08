@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { v4 as uuidv4 } from "uuid";
 import { onDisconnect, onValue, ref, set } from "firebase/database";
-import { rtdb } from "./services/firebase";
+import { auth, rtdb } from "./services/firebase";
 
 import { ScoreCard } from "./components/score";
 import { Game } from "./entities/game";
 import { Board } from "./components/board";
+import { signInAnonymously } from "firebase/auth";
 
 export function App() {
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -16,32 +17,43 @@ export function App() {
   const roomListenerRef = useRef<(() => void) | null>(null);
 
   // 1️⃣ Cria sessão guest
+
   useEffect(() => {
-    const id = uuidv4();
-    guestIdRef.current = id;
-    setGuestId(id);
-    const guestRef = ref(rtdb, `guestSessions/${id}`);
+    if (guestIdRef.current) {
+      console.log("ja tenho um guest");
 
-    const payload = {
-      status: "waiting",
-      roomId: null,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + 5 * 60 * 1000,
-    };
+      return;
+    }
+    console.log("Não tenho um guest");
+    // Faz o login silencioso
+    signInAnonymously(auth)
+      .then(() => {
+        console.log("Autenticado anonimamente!");
 
-    set(guestRef, payload);
-    onDisconnect(guestRef).remove();
+        // Só depois de autenticar, você executa a lógica de criar a sessão
+        const id = uuidv4();
+        guestIdRef.current = id;
+        setGuestId(id);
 
-    return () => {
-      if (roomListenerRef.current) {
-        roomListenerRef.current();
-      }
-    };
+        const guestRef = ref(rtdb, `guestSessions/${id}`);
+        const payload = {
+          status: "waiting",
+          roomId: null,
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 5 * 60 * 1000,
+        };
+
+        set(guestRef, payload);
+
+        onDisconnect(guestRef).remove();
+      })
+      .catch((error) => {
+        console.error("Erro ao autenticar:", error);
+      });
   }, []);
 
   // 2️⃣ Escuta quando o celular conectar uma sala
   useEffect(() => {
-    const guestId = guestIdRef.current;
     if (!guestId) return;
 
     const guestRef = ref(rtdb, `guestSessions/${guestId}`);
@@ -54,7 +66,7 @@ export function App() {
         setRoomId(data.roomId);
       }
     });
-  }, [roomId]);
+  }, [roomId, guestId]);
 
   // 3️⃣ Replica o jogo (read-only)
   useEffect(() => {
