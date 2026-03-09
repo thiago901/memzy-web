@@ -19,12 +19,6 @@ export function App() {
   // 1️⃣ Cria sessão guest
 
   useEffect(() => {
-    if (guestIdRef.current) {
-      console.log("ja tenho um guest");
-
-      return;
-    }
-    console.log("Não tenho um guest");
     // Faz o login silencioso
     signInAnonymously(auth)
       .then(() => {
