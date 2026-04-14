@@ -66,7 +66,7 @@ export function App() {
   useEffect(() => {
     if (!roomId) return;
 
-    const roomRef = ref(rtdb, `privateRooms/rooms/${roomId}`);
+    const roomRef = ref(rtdb, `rooms/${roomId}`);
 
     if (roomListenerRef.current) {
       roomListenerRef.current();
